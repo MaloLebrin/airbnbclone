@@ -51,4 +51,72 @@ router.get("/rooms/:id", async (req, res) => {
         res.status(400).json({ error: "please select a room id" });
     }
 });
+
+router.put("/room/update/:id", isAuthenticated, async (req, res) => {
+    if (req.params.id) {
+        try {
+            const token = await req.headers.authorization.replace(
+                "Bearer ",
+                ""
+            );
+
+            const room = await Room.findById(req.params.id).populate("user");
+
+            if (room.user.token === token) {
+                const { price, title, description } = req.fields;
+                const location = [
+                    req.fields.location.lat,
+                    req.fields.location.lng,
+                ];
+
+                if (price || title || description || location) {
+                    room.price = price ? price : room.price;
+                    room.title = title ? title : room.title;
+                    room.description = description
+                        ? description
+                        : room.description;
+                    room.location = location ? location : room.location;
+                    await room.save();
+                    const roomUpdated = await Room.findById(
+                        req.params.id
+                    ).select(
+                        "photos location _id user title description price"
+                    );
+
+                    res.status(200).json(roomUpdated);
+                } else {
+                    res.status(400).json("missing parametters");
+                }
+            } else {
+                res.status(400).json("token falsy");
+            }
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    } else {
+        res.status(400).json({ error: "please select a room id" });
+    }
+});
+
+router.delete("/room/delete/:id", isAuthenticated, async (req, res) => {
+    if (req.params.id) {
+        try {
+            const token = await req.headers.authorization.replace(
+                "Bearer ",
+                ""
+            );
+            const room = await Room.findById(req.params.id).populate("user");
+            if (room.user.token === token) {
+                room.deleteOne();
+                res.status(200).json("sucessfuly deleted");
+            } else {
+                res.status(400).json("token falsy");
+            }
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    } else {
+        res.status(400).json({ error: "please select a room id" });
+    }
+});
 module.exports = router;
