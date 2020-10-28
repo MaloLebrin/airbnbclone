@@ -3,8 +3,12 @@ const router = express.Router();
 const uid2 = require("uid2");
 const SHA256 = require("crypto-js/sha256");
 const encBase64 = require("crypto-js/enc-base64");
+const cloudinary = require("cloudinary").v2;
 
 const User = require("../model/User");
+const Room = require("../model/Room");
+
+const isAuthenticated = require("../middleware/isAuthenticated");
 
 router.post("/user/signup", async (req, res) => {
     try {
@@ -85,6 +89,105 @@ router.post("/user/login", async (req, res) => {
         }
     } catch (error) {
         res.status(400).json({ error: error.message });
+    }
+});
+
+router.put("/user/upload_picture/:id", isAuthenticated, async (req, res) => {
+    if (req.params.id) {
+        try {
+            const user = await User.findById(req.params.id);
+            if (user) {
+                const result = await cloudinary.uploader.upload(
+                    req.files.picture.path,
+                    {
+                        folder: `airbnb/profiles/${user._id}`,
+                    }
+                );
+                user.account.photo = result;
+                await user.save();
+                res.status(200).json(user);
+            } else {
+                res.status(403).json({ message: "this user does not exist" });
+            }
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    } else {
+        res.status(400).json({ error: "please select a user id" });
+    }
+});
+
+router.delete("/user/delete_picture/:id", isAuthenticated, async (req, res) => {
+    if (req.headers.authorization) {
+        try {
+            if (req.params.id) {
+                const user = await User.findById(req.params.id);
+                if (user) {
+                    await cloudinary.api.delete_resources(
+                        user.account.photo.public_id,
+                        async (error, result) => {
+                            console.log(result, error);
+                        }
+                    );
+                    await cloudinary.api.delete_folder(
+                        `airbnb/profiles/${user._id}`
+                    );
+                    user.account.photo = null;
+                    user.save();
+                    res.status(200).json("picture deleted");
+                } else {
+                    res.status(403).json({ error: error.message });
+                }
+            } else {
+                res.status(403).json({ error: error.message });
+            }
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    } else {
+        res.status(400).json({ error: "please select a user id" });
+    }
+});
+
+router.get("/users/:id", async (req, res) => {
+    if (req.params.id) {
+        try {
+            const user = await User.findById(req.params.id).select(
+                "_id account rooms"
+            );
+            res.status(200).json(user);
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    } else {
+        res.status(400).json({ message: "user does not exist" });
+    }
+});
+
+router.get("/user/rooms/:id", async (req, res) => {
+    if (req.params.id) {
+        try {
+            const user = await User.findById(req.params.id);
+            if (user) {
+                const userRooms = user.rooms;
+                if (userRooms.length > 0) {
+                    let tab = [];
+                    for (let i = 0; i < userRooms.length; i++) {
+                        const room = await Room.findById(userRooms[i]);
+                        tab.push(room);
+                    }
+                    res.json(tab);
+                } else {
+                    res.status(200).json({ message: "This user has no room" });
+                }
+            } else {
+                res.json({ message: "User not found" });
+            }
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    } else {
+        res.status(400).json({ message: "user does not exist" });
     }
 });
 module.exports = router;

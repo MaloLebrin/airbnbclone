@@ -17,6 +17,12 @@ router.post("/room/publish", isAuthenticated, async (req, res) => {
                 user: req.user._id,
             });
             await newRoom.save();
+            const user = await User.findById(req.user._id);
+            let tab = user.rooms;
+            tab.push(newRoom._id);
+            await User.findByIdAndUpdate(req.user._id, {
+                rooms: tab,
+            });
             res.json(newRoom);
         } catch (error) {
             res.status(400).json({ error: error.message });
@@ -119,4 +125,6 @@ router.delete("/room/delete/:id", isAuthenticated, async (req, res) => {
         res.status(400).json({ error: "please select a room id" });
     }
 });
+
+// router.
 module.exports = router;
