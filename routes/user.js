@@ -4,6 +4,10 @@ const uid2 = require("uid2");
 const SHA256 = require("crypto-js/sha256");
 const encBase64 = require("crypto-js/enc-base64");
 const cloudinary = require("cloudinary").v2;
+const mailgun = require("mailgun-js");
+const API_KEY = "07d8271609170566089f2c539f5fc34c-9b1bf5d3-e5b6f839";
+
+const DOMAIN = "sandbox963cc0ab5ebf4b0c8ae2d5e8be3d4eb1.mailgun.org";
 
 const User = require("../model/User");
 const Room = require("../model/Room");
@@ -188,6 +192,155 @@ router.get("/user/rooms/:id", async (req, res) => {
         }
     } else {
         res.status(400).json({ message: "user does not exist" });
+    }
+});
+
+router.put("/user/update/:id", isAuthenticated, async (req, res) => {
+    if (req.params.id) {
+        try {
+            const user = await User.findById(req.params.id);
+            if (user) {
+                const { username, email, description, name } = req.fields;
+                const findByEmail = await User.findOne({
+                    email: email,
+                });
+                const findByUsername = await User.findOne({
+                    "account.username": username,
+                });
+
+                if (findByEmail || findByUsername) {
+                    res.status(403).json({
+                        message: "Username or Email already exist",
+                    });
+                } else {
+                    user.account.username = username
+                        ? username
+                        : user.account.username;
+                    user.account.name = name ? name : user.account.name;
+                    user.account.description = description
+                        ? description
+                        : user.account.description;
+                    user.email = email ? email : user.email;
+
+                    user.save();
+                    res.status(200).json({
+                        _id: user._id,
+                        email: user.email,
+                        account: user.account,
+                    });
+                }
+            } else {
+                res.status(400).json("user does not exist");
+            }
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    } else {
+        res.status(400).json({ message: "user does not exist" });
+    }
+});
+
+router.put("/user/update_password", isAuthenticated, async (req, res) => {
+    const { previousPassword, newPassword } = req.fields;
+    if (previousPassword && newPassword) {
+        try {
+            const user = await User.findById(req.user._id);
+            if (user) {
+                if (
+                    SHA256(previousPassword + user.salt).toString(encBase64) ===
+                    user.hash
+                ) {
+                    const newHash = SHA256(newPassword + user.salt).toString(
+                        encBase64
+                    );
+                    user.hash = newHash;
+                    user.save();
+                    const mg = mailgun({ apiKey: API_KEY, domain: DOMAIN });
+                    const data = {
+                        from: "Malo from Airbnb <me@" + DOMAIN + ">",
+                        to: user.email,
+                        subject: "Password successfully modified",
+                        text: "Password successfully modified!", //attention voir avec le reacteur car api en phase de test
+                    };
+                    mg.messages().send(data, function (error, body) {
+                        console.log(body);
+                        console.log(error);
+                    });
+
+                    res.status(200).json({
+                        message: "Password successfully modified",
+                    });
+                } else {
+                    res.status(403).json({
+                        message: "Invalid previous password",
+                    });
+                }
+            } else {
+                res.status(400).json({ error: "User not found" });
+            }
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    } else {
+        res.status(400).json({ message: "previous and new password missing" });
+    }
+});
+
+router.get("/user/recover_password/", async (req, res) => {
+    if (req.fields.email) {
+        try {
+            const user = await User.findOne({ email: req.fields.email });
+            if (user) {
+                const mg = mailgun({ apiKey: API_KEY, domain: DOMAIN });
+                const data = {
+                    from: "Malo from Airbnb <me@" + DOMAIN + ">",
+                    to: user.email,
+                    subject: "Password successfully modified",
+                    text: `Please, click on the following link to change your password : https://airbnb/change_password?token=${user.token}`, //attention voir avec le reacteur car api en phase de test
+                };
+                mg.messages().send(data, function (error, body) {
+                    console.log(body);
+                    console.log(error);
+                });
+
+                res.status(200).json({
+                    message: "A link has been sent to the user",
+                });
+            } else {
+                res.status(400).json({
+                    message: "User not found with given email",
+                });
+            }
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    } else {
+        res.status(400).json({ message: "Email is required" });
+    }
+});
+
+router.delete("/user/delete/:id", isAuthenticated, async (req, res) => {
+    if (req.params.id) {
+        try {
+            const user = await User.findById(req.params.id);
+            if (user && String(req.user._id) === String(req.params.id)) {
+                const rooms = await Room.find({ user: req.params.id });
+
+                for (let i = 0; i < rooms.length; i++) {
+                    await Room.findByIdAndRemove(rooms[i]._id);
+                }
+
+                await User.findByIdAndRemove(req.params.id);
+
+                res.status(200).json({ message: "User deleted" });
+            } else {
+                res.status(400).json({ error: "User not found" });
+            }
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    } else {
+        res.status(400).json({ error: "Missing user id" });
     }
 });
 module.exports = router;

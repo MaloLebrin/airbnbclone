@@ -31,16 +31,6 @@ router.post("/room/publish", isAuthenticated, async (req, res) => {
         res.status(400).json("missing parametters");
     }
 });
-router.get("/rooms", async (req, res) => {
-    try {
-        const rooms = await Room.find().select(
-            "_id photos location title price user"
-        );
-        res.status(200).json(rooms);
-    } catch (error) {
-        res.status(400).json({ error: error.message });
-    }
-});
 router.get("/rooms/:id", async (req, res) => {
     const id = req.params.id;
     if (id) {
@@ -126,5 +116,31 @@ router.delete("/room/delete/:id", isAuthenticated, async (req, res) => {
     }
 });
 
-// router.
+router.get("/rooms", async (req, res) => {
+    try {
+        const { title, priceMin, priceMax, page, sort, limit } = req.query;
+        let pages = Number(page);
+        if (page > 1) {
+            pages = 1;
+        } else {
+            pages = Number(req.query.page);
+        }
+        const Limit = limit ? limit : 5;
+        const searchByName = new RegExp(title, "i");
+
+        const rooms = await Room.find({
+            price: { $lte: priceMax ? priceMax : 100000000 },
+            price: { $gte: priceMin ? priceMin : 0 },
+            title: searchByName ? searchByName : null,
+        })
+            .sort({ price: sort ? 1 : null })
+            .limit(Limit)
+            .skip((pages - 1) * Limit);
+        const count = await Room.countDocuments(rooms);
+
+        res.status(200).json({ count: count, rooms: rooms });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+});
 module.exports = router;
