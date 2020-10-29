@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require("../model/User");
 const Room = require("../model/Room");
 const isAuthenticated = require("../middleware/isAuthenticated");
+const cloudinary = require("cloudinary").v2;
 
 router.post("/room/publish", isAuthenticated, async (req, res) => {
     const { title, description, price } = req.fields;
@@ -31,20 +32,24 @@ router.post("/room/publish", isAuthenticated, async (req, res) => {
         res.status(400).json("missing parametters");
     }
 });
-router.get("/rooms/:id", async (req, res) => {
-    const id = req.params.id;
-    if (id) {
+
+router.get("/rooms/around", async (req, res) => {
+    const { latitude, longitude, distance } = req.query;
+    if (latitude && longitude) {
+        const maxDistance = distance ? distance : 2;
         try {
-            const room = await Room.findById(id).populate({
-                path: "user",
-                select: "account _id",
+            const rooms = await Room.find({
+                location: {
+                    $near: [latitude, longitude],
+                    $maxDistance: maxDistance,
+                },
             });
-            res.status(200).json(room);
+            res.status(200).json(rooms);
         } catch (error) {
             res.status(400).json({ error: error.message });
         }
     } else {
-        res.status(400).json({ error: "please select a room id" });
+        res.status(400).json({ message: "missing latitude or longitude" });
     }
 });
 
@@ -119,28 +124,67 @@ router.delete("/room/delete/:id", isAuthenticated, async (req, res) => {
 router.get("/rooms", async (req, res) => {
     try {
         const { title, priceMin, priceMax, page, sort, limit } = req.query;
-        let pages = Number(page);
-        if (page > 1) {
-            pages = 1;
+        if (title || priceMin || priceMax || page || sort || limit) {
+            let pages = Number(page);
+            if (page > 1) {
+                pages = 1;
+            } else {
+                pages = Number(req.query.page);
+            }
+            const Limit = limit ? limit : 5;
+            const searchByName = new RegExp(title, "i");
+
+            const rooms = await Room.find({
+                price: { $lte: priceMax ? priceMax : 100000000 },
+                price: { $gte: priceMin ? priceMin : 0 },
+                title: searchByName ? searchByName : null,
+            })
+                .sort({ price: sort ? 1 : null })
+                .limit(Limit)
+                .skip((pages - 1) * Limit);
+            const count = await Room.countDocuments(rooms);
+
+            res.status(200).json({ count: count, rooms: rooms });
         } else {
-            pages = Number(req.query.page);
+            const rooms = await Room.find();
+            if (rooms && rooms.length > 20) {
+                const maxRoom = 20;
+                let randomRooms = [];
+
+                for (let i = 0; i < maxRooms; i++) {
+                    const randomNumber = Math.floor(
+                        Math.random() * rooms.length
+                    );
+
+                    if (randomRooms.indexOf(rooms[randomNumber]) === -1) {
+                        randomRooms.push(rooms[randomNumber]);
+                    }
+                }
+                res.json(randomRooms);
+            } else {
+                res.json(rooms);
+            }
         }
-        const Limit = limit ? limit : 5;
-        const searchByName = new RegExp(title, "i");
-
-        const rooms = await Room.find({
-            price: { $lte: priceMax ? priceMax : 100000000 },
-            price: { $gte: priceMin ? priceMin : 0 },
-            title: searchByName ? searchByName : null,
-        })
-            .sort({ price: sort ? 1 : null })
-            .limit(Limit)
-            .skip((pages - 1) * Limit);
-        const count = await Room.countDocuments(rooms);
-
-        res.status(200).json({ count: count, rooms: rooms });
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
 });
+
+router.get("/rooms/:id", async (req, res) => {
+    const id = req.params.id;
+    if (id) {
+        try {
+            const room = await Room.findById(id).populate({
+                path: "user",
+                select: "account _id",
+            });
+            res.status(200).json(room);
+        } catch (error) {
+            res.status(400).json({ error: error.message });
+        }
+    } else {
+        res.status(400).json({ error: "please select a room id" });
+    }
+});
+
 module.exports = router;
