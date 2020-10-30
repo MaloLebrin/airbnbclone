@@ -8,19 +8,19 @@ require("dotenv").config;
 
 const app = express();
 app.use(helmet());
-app.use(formidableMiddleware());
 app.use(cors());
+app.use(formidableMiddleware());
 
-mongoose.connect("mongodb://localhost/airbnb-api", {
+mongoose.connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     useCreateIndex: true,
     useFindAndModify: false,
 });
 cloudinary.config({
-    cloud_name: "malolebrin",
-    api_key: "212971842325324", //ce sont bien mes données.
-    api_secret: "79KqyVOwveSqV7PGkTcez9btus4",
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
 const userRoutes = require("./routes/user");
@@ -36,6 +36,6 @@ app.all("*", (req, res) => {
     res.status(404).json({ error: "Page not found" });
 });
 
-app.listen(3000, () => {
+app.listen(process.env.PORT, () => {
     console.log("Server has started");
 });

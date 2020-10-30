@@ -5,9 +5,9 @@ const SHA256 = require("crypto-js/sha256");
 const encBase64 = require("crypto-js/enc-base64");
 const cloudinary = require("cloudinary").v2;
 const mailgun = require("mailgun-js");
-const API_KEY = "07d8271609170566089f2c539f5fc34c-9b1bf5d3-e5b6f839";
+const API_KEY = process.env.MAILGUN_API_KEY;
 
-const DOMAIN = "sandbox963cc0ab5ebf4b0c8ae2d5e8be3d4eb1.mailgun.org";
+const DOMAIN = process.env.MAILGUN_DOMAIN;
 
 const User = require("../model/User");
 const Room = require("../model/Room");
@@ -258,7 +258,7 @@ router.put("/user/update_password", isAuthenticated, async (req, res) => {
                     const mg = mailgun({ apiKey: API_KEY, domain: DOMAIN });
                     const data = {
                         from: "Malo from Airbnb <me@" + DOMAIN + ">",
-                        to: user.email,
+                        to: user.email, //"malolebrin@icloud.com"
                         subject: "Password successfully modified",
                         text: "Password successfully modified!", //attention voir avec le reacteur car api en phase de test
                     };
@@ -294,7 +294,7 @@ router.get("/user/recover_password/", async (req, res) => {
                 const mg = mailgun({ apiKey: API_KEY, domain: DOMAIN });
                 const data = {
                     from: "Malo from Airbnb <me@" + DOMAIN + ">",
-                    to: user.email,
+                    to: user.email, //"malolebrin@icloud.com"
                     subject: "Password successfully modified",
                     text: `Please, click on the following link to change your password : https://airbnb/change_password?token=${user.token}`, //attention voir avec le reacteur car api en phase de test
                 };
