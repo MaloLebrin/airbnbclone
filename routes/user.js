@@ -22,12 +22,12 @@ router.post("/user/signup", async (req, res) => {
         const findUsername = await User.findOne({ username });
 
         if (userEmail) {
-            res.status(400).json({
+            return res.status(400).json({
                 error: "This email already has an account.",
             });
         }
         if (findUsername) {
-            res.status(400).json({
+            return res.status(400).json({
                 error: "This username already has an account.",
             });
         } else if (email && password && username && name && description) {
@@ -57,14 +57,14 @@ router.post("/user/signup", async (req, res) => {
                 name: newUser.account.name,
             });
 
-            res.status(200).send("user saved successfully");
+            return res.status(200).send("user saved successfully");
         } else {
-            res.status(400).json({
+            return res.status(400).json({
                 error: "Missing parameters.",
             });
         }
     } catch (error) {
-        res.status(400).json({ error: error.message });
+        return res.status(400).json({ error: error.message });
     }
 });
 
@@ -74,7 +74,7 @@ router.post("/user/login", async (req, res) => {
         if (email && password) {
             const user = await User.findOne({ email });
             if (!user) {
-                res.status(400).json({ error: "Unauthorized" });
+                return res.status(400).json({ error: "Unauthorized" });
             } else if (
                 SHA256(password + user.salt).toString(encBase64) === user.hash
             ) {
@@ -87,12 +87,12 @@ router.post("/user/login", async (req, res) => {
                     name: user.account.name,
                 });
             }
-            res.status(400).json({ error: "Unauthorized2" });
+            return res.status(400).json({ error: "Unauthorized2" });
         } else {
-            res.status(400).json({ error: "Missing parameters" });
+            return res.status(400).json({ error: "Missing parameters" });
         }
     } catch (error) {
-        res.status(400).json({ error: error.message });
+        return res.status(400).json({ error: error.message });
     }
 });
 
@@ -109,15 +109,15 @@ router.put("/user/upload_picture/:id", isAuthenticated, async (req, res) => {
                 );
                 user.account.photo = result;
                 await user.save();
-                res.status(200).json(user);
+                return res.status(200).json(user);
             } else {
-                res.status(403).json({ message: "this user does not exist" });
+                return res.status(403).json({ message: "this user does not exist" });
             }
         } catch (error) {
-            res.status(400).json({ error: error.message });
+            return res.status(400).json({ error: error.message });
         }
     } else {
-        res.status(400).json({ error: "please select a user id" });
+        return res.status(400).json({ error: "please select a user id" });
     }
 });
 
@@ -138,18 +138,18 @@ router.delete("/user/delete_picture/:id", isAuthenticated, async (req, res) => {
                     );
                     user.account.photo = null;
                     user.save();
-                    res.status(200).json("picture deleted");
+                    return res.status(200).json("picture deleted");
                 } else {
-                    res.status(403).json({ error: error.message });
+                    return res.status(403).json({ error: error.message });
                 }
             } else {
-                res.status(403).json({ error: error.message });
+                return res.status(403).json({ error: error.message });
             }
         } catch (error) {
-            res.status(400).json({ error: error.message });
+            return res.status(400).json({ error: error.message });
         }
     } else {
-        res.status(400).json({ error: "please select a user id" });
+        return res.status(400).json({ error: "please select a user id" });
     }
 });
 
@@ -159,12 +159,12 @@ router.get("/users/:id", async (req, res) => {
             const user = await User.findById(req.params.id).select(
                 "_id account rooms"
             );
-            res.status(200).json(user);
+            return res.status(200).json(user);
         } catch (error) {
-            res.status(400).json({ error: error.message });
+            return res.status(400).json({ error: error.message });
         }
     } else {
-        res.status(400).json({ message: "user does not exist" });
+        return res.status(400).json({ message: "user does not exist" });
     }
 });
 
@@ -182,16 +182,16 @@ router.get("/user/rooms/:id", async (req, res) => {
                     }
                     res.json(tab);
                 } else {
-                    res.status(200).json({ message: "This user has no room" });
+                    return res.status(200).json({ message: "This user has no room" });
                 }
             } else {
                 res.json({ message: "User not found" });
             }
         } catch (error) {
-            res.status(400).json({ error: error.message });
+            return res.status(400).json({ error: error.message });
         }
     } else {
-        res.status(400).json({ message: "user does not exist" });
+        return res.status(400).json({ message: "user does not exist" });
     }
 });
 
@@ -209,7 +209,7 @@ router.put("/user/update/:id", isAuthenticated, async (req, res) => {
                 });
 
                 if (findByEmail || findByUsername) {
-                    res.status(403).json({
+                    return res.status(403).json({
                         message: "Username or Email already exist",
                     });
                 } else {
