@@ -16,8 +16,7 @@ const isAuthenticated = require("../middleware/isAuthenticated");
 
 router.post("/user/signup", async (req, res) => {
     try {
-        const { email, password, username, name, description } = req.fields;
-
+        const { email, password, username, description } = req.fields;
         const userEmail = await User.findOne({ email });
         const findUsername = await User.findOne({ username });
 
@@ -30,11 +29,11 @@ router.post("/user/signup", async (req, res) => {
             return res.status(400).json({
                 error: "This username already has an account.",
             });
-        } else if (email && password && username && name && description) {
+        } else if (email && password && username && description) {
             const token = uid2(64);
             const salt = uid2(64);
             const hash = SHA256(password + salt).toString(encBase64);
-
+            console.log(('dans la condition'));
             const newUser = new User({
                 email,
                 token,
@@ -42,22 +41,20 @@ router.post("/user/signup", async (req, res) => {
                 salt,
                 account: {
                     username,
-                    name,
                     description,
                 },
             });
-
             await newUser.save();
-            res.json({
+
+            return res.json({
                 _id: newUser._id,
                 token: newUser.token,
                 email: newUser.email,
                 username: newUser.account.username,
                 description: newUser.account.description,
-                name: newUser.account.name,
             });
 
-            return res.status(200).send("user saved successfully");
+            // return res.status(200).send("user saved successfully");
         } else {
             return res.status(400).json({
                 error: "Missing parameters.",
@@ -78,7 +75,7 @@ router.post("/user/login", async (req, res) => {
             } else if (
                 SHA256(password + user.salt).toString(encBase64) === user.hash
             ) {
-                res.json({
+                return res.status(200).json({
                     _id: user._id,
                     token: user.token,
                     email: user.email,

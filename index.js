@@ -37,5 +37,5 @@ app.all("*", (req, res) => {
 });
 
 app.listen(process.env.PORT || 3001, () => {
-    console.log("Server has started");
+    console.log(`Server has started on port ${process.env.PORT}`);
 });
